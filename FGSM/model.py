@@ -3,33 +3,26 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from torchvision import datasets, transforms
+from torchvision import datasets, transforms, models
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-epsilons = [0, 0.05, 0.1, 0.2, 0.25, 0.3]
-pretrained_model = "lenet_mnist_model.pth"
 use_cuda = True
+device = torch.device("cuda" if (use_cuda and torch.cuda.is_available()) else "cpu")
 
-# LeNet-5 Model
-class LeNet(nn.Module):
-    def __init__(self):
-        super(LeNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, 10)
 
-    def forward(self, x):
-        y_ = x
-        y_ = F.relu(F.max_pool2d(self.conv1(y_), 2))
-        y_ = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(y_)), 2))
-        y_ = y_.view(-1, 320)  # fully connected strench
-        y_ = F.relu(self.fc1(y_))
-        y_ = F.dropout(y_, training=self.training)
-        y_ = self.fc2(y_)
-        return F.log_softmax(y_, dim=1)
+def set_parameter_requires_grad(model, feature_extract):
+    if feature_extract:
+        for param in model.parameters():
+            param.requires_grad = False
 
+
+def initialize_vgg11_bn(num_classes, feature_extract):
+    vgg11_bn_ft = models.vgg11_bn(pretrained=True)
+    set_parameter_requires_grad(vgg11_bn_ft, feature_extract)
+    num_ftrs = vgg11_bn_ft.classifier[6].in_features
+    vgg11_bn_ft.classifier[6] = nn.Linear(num_ftrs, num_classes)
+    input_size = 224  # for ImageNet requirement
+
+    return vgg11_bn_ft, input_size
